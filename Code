@@ -1,0 +1,498 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import pandas as pd
+import numpy as np
+
+df_train = pd.read_csv("spotify_songs_train_num.csv") 
+#excluding the "label" column
+X_train = df_train.drop('label', axis=1)
+
+df_test = pd.read_csv("spotify_songs_test_num.csv") 
+#excluding the "label" column
+X_test = df_test.drop('label', axis=1)
+
+y_train = df_train["label"]
+y_test = df_test["label"]
+
+#for result table
+algorithm = []
+data_type = []
+hyperparameter = []
+accuracy = []
+f1 = []
+
+
+# In[2]:
+
+
+import matplotlib.pyplot as plt 
+
+plt.hist(y_train)
+
+
+# In[3]:
+
+
+for i in X_train.columns:
+    plt.figure()
+    plt.title(f'{i}')
+    plt.hist(X_train[i])
+
+
+# In[4]:
+
+
+from sklearn.dummy import DummyClassifier
+from sklearn.metrics import f1_score
+from sklearn.metrics import confusion_matrix
+
+dummy_clf = DummyClassifier(strategy="uniform")
+dummy_clf.fit(X_train, y_train)
+
+#train data
+pred_dummy = dummy_clf.predict(X_train)
+confusion = confusion_matrix(y_train, pred_dummy)
+print("Train set accuracy: {:.2f}".format(dummy_clf.score(X_train, y_train)))
+print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_dummy, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+#test data
+pred_dummy = dummy_clf.predict(X_test)
+confusion = confusion_matrix(y_test, pred_dummy)
+print("Test set accuracy: {:.2f}".format(dummy_clf.score(X_test, y_test)))
+print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_dummy, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+algorithm.append("Dummy Classifier")
+data_type.append("numerical")
+hyperparameter.append("none")
+accuracy.append(round(dummy_clf.score(X_test, y_test), 2))
+f1.append(round(f1_score(y_test, pred_dummy, average = "weighted"), 2))
+
+print(algorithm, data_type, hyperparameter, accuracy, f1)
+
+
+# In[5]:
+
+
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+
+#I created universal param_grid with 3 hyperparameters, so later I won't have to write a new one for each low-level classifiers
+param_grid = {'C': [0.001, 0.01, 0.1, 1, 10],'gamma': [0.001, 0.01, 0.1, 1, 10], "max_depth": range(1,10)}
+
+#GridSearchCV with Logistic Regression and cross-validation (cv)
+grid_search_lr = GridSearchCV(LogisticRegression(), param_grid={'C': param_grid['C']}, cv=5)
+grid_search_lr.fit(X_train, y_train)
+print("Best parameter: {}".format(grid_search_lr.best_params_))
+
+#train data
+pred_grid = grid_search_lr.predict(X_train)
+confusion = confusion_matrix(y_train, pred_grid)
+print("Train set accuracy: {:.2f}".format(grid_search_lr.score(X_train, y_train)))
+print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+#test data
+pred_grid = grid_search_lr.predict(X_test)
+confusion = confusion_matrix(y_test, pred_grid)
+print("Test set accuracy: {:.2f}".format(grid_search_lr.score(X_test, y_test)))
+print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+algorithm.append("Logistic Regression")
+data_type.append("numerical")
+hyperparameter.append(grid_search_lr.best_params_)
+accuracy.append(round(grid_search_lr.score(X_test, y_test), 2))
+f1.append(round(f1_score(y_test, pred_grid, average = "weighted"), 2))
+
+print(algorithm, data_type, hyperparameter, accuracy, f1)
+
+
+# In[6]:
+
+
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.fit_transform(X_test) 
+
+
+# In[7]:
+
+
+for C in param_grid["C"]:
+    log_reg = LogisticRegression(C=C).fit(X_train_scaled, y_train)
+    print(C, "Accuracy:\n{}".format(log_reg.score(X_test_scaled, y_test)))
+
+
+# In[8]:
+
+
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+
+#GridSearchCV with SVM and cross-validation (cv) on a scaled data
+grid_search_svm = GridSearchCV(SVC(), param_grid={'C': param_grid['C'], 'gamma': param_grid['gamma']}, cv=5)
+grid_search_svm.fit(X_train_scaled, y_train)
+print("Best parameters: {}".format(grid_search_svm.best_params_))
+
+#train data
+pred_grid = grid_search_svm.predict(X_train_scaled)
+confusion = confusion_matrix(y_train, pred_grid)
+print("Train set accuracy: {:.2f}".format(grid_search_svm.score(X_train_scaled, y_train)))
+print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+#test data
+pred_grid = grid_search_svm.predict(X_test_scaled)
+confusion = confusion_matrix(y_test, pred_grid)
+print("Test set accuracy: {:.2f}".format(grid_search_svm.score(X_test_scaled, y_test)))
+print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+algorithm.append("SVM")
+data_type.append("numerical")
+hyperparameter.append(grid_search_svm.best_params_)
+accuracy.append(round(grid_search_svm.score(X_test_scaled, y_test), 2))
+f1.append(round(f1_score(y_test, pred_grid, average = "weighted"), 2))
+print("---")
+
+
+#GridSearchCV with Decision Tree Classifier and cross-validation (cv) on a scaled data
+grid_search_dtc = GridSearchCV(DecisionTreeClassifier(), param_grid={'max_depth': param_grid['max_depth']}, cv=5)
+grid_search_dtc.fit(X_train_scaled, y_train)
+print("Best parameters: {}".format(grid_search_dtc.best_params_))
+
+#train data
+pred_grid = grid_search_dtc.predict(X_train_scaled)
+confusion = confusion_matrix(y_train, pred_grid)
+print("Train set accuracy: {:.2f}".format(grid_search_dtc.score(X_train_scaled, y_train)))
+print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+#test data
+pred_grid = grid_search_dtc.predict(X_test_scaled)
+confusion = confusion_matrix(y_test, pred_grid)
+print("Test set accuracy: {:.2f}".format(grid_search_dtc.score(X_test_scaled, y_test)))
+print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+algorithm.append("Decision Tree Classifier")
+data_type.append("numerical")
+hyperparameter.append(grid_search_dtc.best_params_)
+accuracy.append(round(grid_search_dtc.score(X_test_scaled, y_test), 2))
+f1.append(round(f1_score(y_test, pred_grid, average = "weighted"), 2))
+
+print(algorithm, data_type, hyperparameter, accuracy, f1)
+
+
+# In[9]:
+
+
+#It can take really a lot of time to process the code, but it works
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+
+#GridSearchCV with RandomForestClassifier and cross-validation (cv) on a scaled data
+grid_search_rfc = GridSearchCV(RandomForestClassifier(), param_grid={'max_depth': param_grid['max_depth']}, cv=5)
+grid_search_rfc.fit(X_train_scaled, y_train)
+print("Best parameters: {}".format(grid_search_rfc.best_params_))
+
+#train data
+pred_grid = grid_search_rfc.predict(X_train_scaled)
+confusion = confusion_matrix(y_train, pred_grid)
+print("Train set accuracy: {:.2f}".format(grid_search_rfc.score(X_train_scaled, y_train)))
+print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+#test data
+pred_grid = grid_search_rfc.predict(X_test_scaled)
+confusion = confusion_matrix(y_test, pred_grid)
+print("Test set accuracy: {:.2f}".format(grid_search_rfc.score(X_test_scaled, y_test)))
+print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+print("---")
+
+algorithm.append("RandomForestClassifier")
+data_type.append("numerical")
+hyperparameter.append(grid_search_rfc.best_params_)
+accuracy.append(round(grid_search_rfc.score(X_test_scaled, y_test), 2))
+f1.append(round(f1_score(y_test, pred_grid, average = "weighted"), 2))
+
+
+#GridSearchCV with GradientBoostingClassifier and cross-validation (cv) on a scaled data
+grid_search_gbc = GridSearchCV(GradientBoostingClassifier(), param_grid={'max_depth': param_grid['max_depth']}, cv=5)
+grid_search_gbc.fit(X_train_scaled, y_train)
+print("Best parameters: {}".format(grid_search_gbc.best_params_))
+
+#train data
+pred_grid = grid_search_gbc.predict(X_train_scaled)
+confusion = confusion_matrix(y_train, pred_grid)
+print("Train set accuracy: {:.2f}".format(grid_search_gbc.score(X_train_scaled, y_train)))
+print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+#test data
+pred_grid = grid_search_gbc.predict(X_test_scaled)
+confusion = confusion_matrix(y_test, pred_grid)
+print("Test set accuracy: {:.2f}".format(grid_search_gbc.score(X_test_scaled, y_test)))
+print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+algorithm.append("GradientBoostingClassifier")
+data_type.append("numerical")
+hyperparameter.append(grid_search_gbc.best_params_)
+accuracy.append(round(grid_search_gbc.score(X_test_scaled, y_test), 2))
+f1.append(round(f1_score(y_test, pred_grid, average = "weighted"), 2))
+
+print(algorithm, data_type, hyperparameter, accuracy, f1)
+
+
+# In[10]:
+
+
+print("Feature importances for RandomForestClassifier:\n{}".format(grid_search_rfc.best_estimator_.feature_importances_))
+print("Feature importances for GradientBoostingClassifier:\n{}".format(grid_search_gbc.best_estimator_.feature_importances_))
+
+feature_names = X_train.columns.tolist()
+
+def plot_feature_importances(model):
+    n_features = len(feature_names)
+    plt.barh(range(n_features), model.feature_importances_, align='center')
+    plt.yticks(np.arange(n_features), feature_names)
+    plt.xlabel("Feature importance")
+    plt.ylabel("Feature")
+    plt.title("Feature Importance - {}".format(type(model).__name__))
+    plt.show()
+
+plot_feature_importances(grid_search_rfc.best_estimator_)
+plot_feature_importances(grid_search_gbc.best_estimator_)
+
+coefficients = grid_search_lr.best_estimator_.coef_[0]
+
+plt.figure(figsize=(10, 6))
+plt.barh(range(len(coefficients)), coefficients, align='center')
+plt.yticks(np.arange(len(coefficients)), feature_names)
+plt.xlabel("Coefficient Value")
+plt.ylabel("Feature")
+plt.title("Logistic Regression Coefficients")
+plt.show()
+
+# Based on the plot it can be concluded that Logisitic Regression differs greatly from previous 2 classifiers. 
+# It tends to emphasise on 1-2 feaures, when RandomForestClassifier and GradientBoostingClassifier split feature importance more evenly.
+# Also Logisitic Regression thinks that the most important features are tempo and track popularity, when RFC and GBC think that danceability is what most important.
+
+
+# In[11]:
+
+
+train_data = pd.read_csv("spotify_songs_train2.csv")
+X_train = train_data["lyrics"].values.astype("str")
+test_data = pd.read_csv("spotify_songs_test2.csv")
+X_test = test_data["lyrics"].values.astype("str")
+
+y_train = train_data["label"]
+y_test = test_data["label"]
+
+
+# In[12]:
+
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import CountVectorizer
+
+vectorizer = TfidfVectorizer()
+
+X_count_vect = vectorizer.fit_transform(X_train) 
+
+#rescaling for evaluation on a train data
+X_tf_train = vectorizer.fit_transform(X_train)
+
+#rescaling for evaluation on a test data
+X_tf_test = vectorizer.fit_transform(X_test)
+
+
+# In[13]:
+
+
+#training and evaluating on a train data with RandomForestClassifier
+grid_search_rfc = GridSearchCV(RandomForestClassifier(), param_grid={'max_depth': param_grid['max_depth']}, cv=5)
+grid_search_rfc.fit(X_tf_train, y_train)
+print("Best parameters: {}".format(grid_search_rfc.best_params_))
+
+pred_grid = grid_search_rfc.predict(X_tf_train)
+confusion = confusion_matrix(y_train, pred_grid)
+print("Train set accuracy: {:.2f}".format(grid_search_rfc.score(X_tf_train, y_train)))
+print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+#training and evaluating on a test data with RandomForestClassifier
+grid_search_rfc = GridSearchCV(RandomForestClassifier(), param_grid={'max_depth': param_grid['max_depth']}, cv=5)
+grid_search_rfc.fit(X_tf_test, y_test)
+print("Best parameters: {}".format(grid_search_rfc.best_params_))
+
+pred_grid = grid_search_rfc.predict(X_tf_test)
+confusion = confusion_matrix(y_test, pred_grid)
+print("Test set accuracy: {:.2f}".format(grid_search_rfc.score(X_tf_test, y_test)))
+print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_grid, average = "weighted")))
+print("Confusion matrix:\n{}".format(confusion))
+
+algorithm.append("RandomForestClassifier")
+data_type.append("text")
+hyperparameter.append(grid_search_rfc.best_params_)
+accuracy.append(round(grid_search_rfc.score(X_tf_test, y_test), 2))
+f1.append(round(f1_score(y_test, pred_grid, average = "weighted"), 2))
+
+print(algorithm, data_type, hyperparameter, accuracy, f1)
+
+
+# In[14]:
+
+
+#Trying different hyper-parameters for text classification
+
+#TRAIN DATA
+#setting stop words to english
+vectorizer = CountVectorizer(stop_words='english')
+X_count_vect_sw = vectorizer.fit_transform(X_train) 
+
+#different ngram_range values
+cv2 = CountVectorizer(ngram_range=(2, 2)).fit(X_train)
+cv2 = cv2.transform(X_train)
+
+cv3 = CountVectorizer(ngram_range=(1, 3)).fit(X_train)
+cv3 = cv3.transform(X_train)
+
+#different min_df values
+vectorizer = CountVectorizer(min_df=4)
+X_count_min_dif = vectorizer.fit_transform(X_train)
+
+#TEST DATA
+#setting stop words to english
+vectorizer = CountVectorizer(stop_words='english')
+X_count_vect_sw2 = vectorizer.fit_transform(X_test) 
+
+#different ngram_range values
+cv22 = CountVectorizer(ngram_range=(2, 2)).fit(X_test)
+cv22 = cv22.transform(X_test)
+
+cv32 = CountVectorizer(ngram_range=(1, 3)).fit(X_test)
+cv32 = cv32.transform(X_test)
+
+#different min_df values
+vectorizer = CountVectorizer(min_df=4)
+X_count_min_dif2 = vectorizer.fit_transform(X_test)
+
+
+# In[15]:
+
+
+#Applying dimensionality reduction on a text data
+#Originally I wanted to use PCA, but the error would occur, so I found this alternative that I think we didn't cover in class, but it works 
+from sklearn.decomposition import TruncatedSVD
+
+
+#train data
+svd = TruncatedSVD(n_components=2)
+svd.fit(X_tf_train)
+X_r = svd.transform(X_tf_train)
+print("Original shape: {}".format(str(X_tf_train.shape)))
+print("Reduced shape: {}".format(str(X_r.shape)))
+print("SVD component shape: {}".format(svd.components_.shape))
+print("SVD components:\n{}".format(svd.components_))
+
+#test data 
+svd = TruncatedSVD(n_components=2)
+svd.fit(X_tf_test)
+X_r2 = svd.transform(X_tf_test)
+print("Original shape: {}".format(str(X_tf_test.shape)))
+print("Reduced shape: {}".format(str(X_r2.shape)))
+print("SVD component shape: {}".format(svd.components_.shape))
+print("SVD components:\n{}".format(svd.components_))
+
+
+# In[16]:
+
+
+#data that I stored for later evaluation
+train_data = [X_count_vect_sw, cv2, cv3, X_count_min_dif, X_r]
+test_data = [X_count_vect_sw2, cv22, cv32, X_count_min_dif2, X_r2]
+
+#for storing data in the table of results
+train_data_names = ['CountVectorizer', 'ngram_range2', 'ngram_range3', 'min_df', 'TruncatedSVD']
+train_data = [{'name': name, 'value': data} for name, data in zip(train_data_names, train_data)]
+
+for item in train_data:
+    print(item['name'])
+
+#for storing data in the table of results
+test_data_names = ['CountVectorizer', 'ngram_range2', 'ngram_range3', 'min_df', 'TruncatedSVD']
+test_data = [{'name': name, 'value': data} for name, data in zip(test_data_names, test_data)]
+
+for item in test_data:
+    print(item['name'])
+
+
+# In[17]:
+
+
+#I decided to wrote a fuction, so I won't have to copypaste same code 10 times
+#Also in assignment you didn't mention whether I should train on train or test data, so just in case I included both
+def gridsearch_train(data):
+    grid_search_rfc = GridSearchCV(RandomForestClassifier(), param_grid={'max_depth': param_grid['max_depth']}, cv=5)
+    grid_search_rfc.fit(data['value'], y_train)
+    print(data['name'])
+    print("Best parameters: {}".format(grid_search_rfc.best_params_))
+
+    pred_grid = grid_search_rfc.predict(data['value'])
+    confusion = confusion_matrix(y_train, pred_grid)
+    print("Train set accuracy: {:.2f}".format(grid_search_rfc.score(data['value'], y_train)))
+    print("Train f1 score: {:.2f}".format(f1_score(y_train, pred_grid, average = "weighted")))
+    print("Confusion matrix:\n{}".format(confusion))
+
+def gridsearch_test(data):
+    grid_search_rfc = GridSearchCV(RandomForestClassifier(), param_grid={'max_depth': param_grid['max_depth']}, cv=5)
+    grid_search_rfc.fit(data['value'], y_test)
+    print(data['name'])
+    print("Best parameters: {}".format(grid_search_rfc.best_params_))
+    pred_grid = grid_search_rfc.predict(data['value'])
+    confusion = confusion_matrix(y_test, pred_grid)
+    #to update result table
+    accuracy1 = grid_search_rfc.score(data['value'], y_test)
+    algorithm.append(data['name'])
+    data_type.append("text")
+    hyperparameter.append(grid_search_rfc.best_params_)
+    accuracy.append(round(accuracy1, 2))
+    f1.append(round(f1_score(y_test, pred_grid, average = "weighted"), 2))
+    print("Test set accuracy: {:.2f}".format(grid_search_rfc.score(data['value'], y_test)))
+    print("Test f1 score: {:.2f}".format(f1_score(y_test, pred_grid, average = "weighted")))
+    print("Confusion matrix:\n{}".format(confusion))
+
+# for data in train_data:
+#     gridsearch_train(data)
+
+for data in test_data:
+    gridsearch_test(data)
+
+print(algorithm, data_type, hyperparameter, accuracy, f1)
+
+
+# In[18]:
+
+
+results = list(zip(algorithm, data_type, hyperparameter, accuracy, f1))
+
+df_new = pd.DataFrame(results, columns=["Algorithm", "Type of data", "Hyperparameter", "accuracy", "f1"])
+
+print(df_new)
+
+df_new.to_csv('summary table.csv') 
+
